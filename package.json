@@ -1,0 +1,12 @@
+{
+  "name": "umbrella-parade-manga-tool",
+  "version": "1.0.0",
+  "description": "Umbrella Parade manga scheduled posting server",
+  "main": "x-post-server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node x-post-server.js"
+  }
+}

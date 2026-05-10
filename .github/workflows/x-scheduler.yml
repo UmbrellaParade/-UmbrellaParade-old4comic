@@ -1,0 +1,47 @@
+name: X予約投稿ランナー
+
+on:
+  schedule:
+    # 毎時0分と30分に実行（UTC）→ JST 9:00/9:30/10:00/10:30... のように30分ごと
+    - cron: '0,30 * * * *'
+  workflow_dispatch:
+    # GitHubの画面から手動実行も可能
+
+concurrency:
+  group: x-scheduler
+  cancel-in-progress: false   # 前の実行が終わるまで待つ（同時実行しない）
+
+permissions:
+  contents: write             # x-scheduled-posts.json をコミットして戻すため
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # Node.js 24 を使用（警告対策）
+
+jobs:
+  run-scheduler:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Node.js バージョン確認
+        run: node --version
+
+      - name: X予約投稿スケジューラーを実行
+        run: node x-scheduler-runner.js
+
+      - name: 更新されたスケジュールをコミット＆プッシュ
+        run: |
+          git config user.name "X Scheduler Bot"
+          git config user.email "xscheduler@umbrella-parade.local"
+          git add x-scheduled-posts.json
+          if git diff --staged --quiet; then
+            echo "✅ スケジュールに変更なし（投稿なし）"
+          else
+            git commit -m "chore: 予約投稿ステータス更新 [skip ci]"
+            git push
+            echo "✅ スケジュールを更新してプッシュしました"
+          fi
