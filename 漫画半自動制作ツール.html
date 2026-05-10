@@ -6031,6 +6031,33 @@ ${lines || "|  |  |  |  |  |  |  |  |"}
       return readList(RESERVATION_KEY).find((item) => item.id === id);
     }
 
+    function syncMainScheduleFieldsFromReservation(item) {
+      if (!item) return;
+      if ($("scheduled") && item.date) $("scheduled").value = item.date;
+      if ($("scheduledTime") && item.time) $("scheduledTime").value = item.time;
+      if ($("calendarMonth") && item.date) $("calendarMonth").value = item.date.slice(0, 7);
+      if (item.character) {
+        activeScheduleCharacter = item.character;
+        if (item.date) saveScheduledDateForCharacter(item.character, item.date);
+      }
+      if (item.time) localStorage.setItem(LAST_TIME_KEY, item.time);
+    }
+
+    function syncSelectedReservationScheduleFromMainFields(item) {
+      if (!item) return null;
+      const editDate = $("reservationEditDate") && validDateInput(val("reservationEditDate")) ? val("reservationEditDate") : "";
+      const editTime = $("reservationEditTime") ? val("reservationEditTime") : "";
+      const date = editDate || (validDateInput(val("scheduled")) ? val("scheduled") : (item.date || today()));
+      const time = editTime || val("scheduledTime") || item.time || localStorage.getItem(LAST_TIME_KEY) || "20:00";
+      if (item.date === date && (item.time || "") === time) return item;
+      const updated = updateReservationById(item.id, { date, time });
+      if (updated) {
+        saveScheduledDateForCharacter(updated.character || item.character, date);
+        localStorage.setItem(LAST_TIME_KEY, time);
+      }
+      return updated || { ...item, date, time };
+    }
+
     function loadReservation() {
       const item = selectedReservation();
       if (!item) return;
@@ -7688,11 +7715,12 @@ ${lines || "|  |  |  |  |  |  |  |  |"}
         setXPostStatus("予約投稿前のリストからX予約投稿するネタを選んでください。", "err");
         return;
       }
-      const item = selectedReservation();
+      let item = selectedReservation();
       if (!item) {
         setXPostStatus("選択した予約を読み込めませんでした。", "err");
         return;
       }
+      item = syncSelectedReservationScheduleFromMainFields(item) || item;
       const targetCharacter = xTokenCharacter(item.character);
       let token = "";
       loadXAccessToken(targetCharacter);
@@ -9826,12 +9854,14 @@ ${lines || "|  |  |  |  |  |  |  |  |"}
     $("reservationList").addEventListener("change", () => {
       if ($("completedReservationList")) $("completedReservationList").value = "";
       if ($("xScheduleQueueList")) $("xScheduleQueueList").value = "";
+      syncMainScheduleFieldsFromReservation(selectedReservation());
       clearReservationDateTimeEditor("日時を変更する時だけ「選択予約の日時を表示」を押してください。");
       syncReservationTextEditor(selectedReservation());
     });
     $("completedReservationList").addEventListener("change", () => {
       $("reservationList").value = "";
       if ($("xScheduleQueueList")) $("xScheduleQueueList").value = "";
+      syncMainScheduleFieldsFromReservation(selectedReservation());
       clearReservationDateTimeEditor("日時を変更する時だけ「選択予約の日時を表示」を押してください。");
       syncReservationTextEditor(selectedReservation());
     });

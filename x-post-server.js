@@ -171,7 +171,7 @@ async function pullScheduleQueueFromGitHub(reason = "schedule list") {
   }
 
   try {
-    const { stdout } = await execFileAsync(gitPath(), ["pull", "--ff-only"], { cwd: __dirname });
+    const { stdout } = await execFileAsync(gitPath(), ["pull", "--ff-only", "origin", "main"], { cwd: __dirname });
     const result = {
       ok: true,
       pulled: true,
