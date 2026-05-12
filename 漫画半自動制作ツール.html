@@ -4591,7 +4591,14 @@ Sub-character staging rules:
 - Use the sub-character reference image as a high-priority visual reference.
 - Unless the script clearly says otherwise, make this a dialogue scene between the main character and the selected sub-character(s).
 - Keep each character visually distinct. Do not merge the sub-character into the main character's outfit, face, hair, or logo.
-- Speech bubble tails must point to the correct speaker.
+- Speech bubble ownership is critical. Each speech bubble belongs to exactly one speaker.
+- Speech bubble tails must point to the correct speaker's mouth or chest area.
+- Never place a sub-character's line in a bubble visually attached to the main character, and never place the main character's line in a bubble visually attached to the sub-character.
+- If one panel contains lines from two speakers, split them into two separate speech bubbles, one near each speaker.
+- If the panel script includes a speaker label such as "Vel 13th:", "ヴェル13世「...」", "Carla Manson:", or "カーラ・マンソン「...」", use the label only to assign the bubble to that character. Do not draw the speaker name label unless it is part of the spoken line.
+- Keep two characters on clearly different sides of the panel when possible, and place each speaker's bubble on their own side or above them.
+- Correct speaker-to-bubble assignment is more important than the default left/right bubble alternation.
+- Before finalizing the image, self-check: every bubble tail must point to the character who is actually speaking.
 `
         : "";
       const chatGptReferenceBlock = d.chatGptReferenceInstruction
@@ -4665,6 +4672,7 @@ Sub-character staging rules:
 - Speech bubbles must alternate left and right. Never put all four bubbles on the left.
 - Keep bubbles inside each panel. Do not cover the face, hat, horns, wings, character props, or logo/sign area.
 - Each speech bubble tail must point to the speaking character.
+- In panels with two characters, do not attach multiple characters' dialogue to one person. Split dialogue by speaker and place each bubble near the correct character.
 - Use short, extra-large, readable Japanese text. If text becomes too crowded, use fewer words rather than shrinking text.
 
 On-image text whitelist:
@@ -4695,6 +4703,12 @@ Panel 1 visible dialogue: ${d.p1 || ""}
 Panel 2 visible dialogue: ${d.p2 || ""}
 Panel 3 visible dialogue: ${d.p3 || ""}
 Panel 4 visible dialogue: ${d.p4 || ""}
+
+Dialogue speaker handling:
+- Treat any character name before a colon or Japanese quote as speaker metadata for bubble placement.
+- Render only the spoken words inside the bubble unless the name is clearly meant to be spoken aloud.
+- If a panel contains two speaker-labeled lines, draw two separate bubbles and attach each tail to the matching character.
+- Do not combine two speakers into one bubble.
 
 Layout rules:
 - Four clear panels.
@@ -10043,7 +10057,9 @@ ${lines || "|  |  |  |  |  |  |  |  |"}
       const dialogueRules = selectedSubCharacters.length
         ? `- 登場キャラクターが選ばれているので、主人公と登場キャラクターが会話するシーンにする。
 - 少なくとも2コマ以上で、主人公と登場キャラクターのやり取りが分かるようにする。
-- セリフは「キャラ名「セリフ」」の形を混ぜて、誰が話しているか画像生成側にも分かるようにする。
+- セリフは「キャラ名: セリフ」または「キャラ名「セリフ」」の形を混ぜて、誰が話しているか画像生成側にも分かるようにする。
+- 1コマの中で2人が話す場合は、話者ごとに改行して分ける。
+- キャラ名は画像生成時の吹き出し配置用の話者ラベル。漫画内には基本的に表示しない前提で書く。
 `
         : "";
       const optionalOutput = [
