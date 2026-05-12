@@ -3663,6 +3663,46 @@
       }).slice(0, limit);
     }
 
+    function characterStrongMentionHints(name) {
+      if (name === "ヴェル13世") return ["ヴェル13世", "ヴェル", "Vel 13th", "Vel"];
+      if (name === "カーラ・マンソン") return ["カーラ・マンソン", "カーラ", "Carla Manson", "Carla"];
+      if (name === "べるぼ") return ["べるぼ", "ベルボ", "Belbo"];
+      if (name === "アマモリ") return ["アマモリ", "雨守", "Amamori"];
+      if (name === "アマヨミ") return ["アマヨミ", "雨詠", "Amayomi"];
+      return [name].filter(Boolean);
+    }
+
+    function storyTextSuggestsCharacter(name, storyText, mainCharacter) {
+      const text = String(storyText || "");
+      if (!text) return false;
+      if (characterStrongMentionHints(name).some((hint) => hint && text.includes(hint))) return true;
+      if (name === "ヴェル13世" && mainCharacter !== "ヴェル13世" && /(^|[^\p{L}\p{N}])(俺|オレ)([^\p{L}\p{N}]|$)/u.test(text)) return true;
+      return false;
+    }
+
+    function buildSubCharacterReference(name) {
+      const subInfo = characterData[name];
+      if (!subInfo) return null;
+      const image = configuredCharacterReferenceImage(name);
+      const supportingImages = supportingCharacterReferenceImages(name, image, 4);
+      const primaryImage = supportingImages[0] || image;
+      return {
+        name,
+        info: subInfo,
+        imageName: primaryImage ? primaryImage.name || "" : "",
+        imagePath: primaryImage ? outputImagePath(primaryImage) : "",
+        imageRaw: primaryImage ? primaryImage.path || "" : "",
+        extraImages: supportingImages.slice(1).map((img, index) => ({
+          name: img.name || "",
+          path: img.path || "",
+          outputPath: outputImagePath(img),
+          referenceLabel: referenceImageLabel(name, `sub-character-supporting-reference-${index + 2}`)
+        })),
+        referenceLabel: referenceImageLabel(name, "sub-character-reference"),
+        autoDetected: false
+      };
+    }
+
     function referenceImageLabel(character, role) {
       return cleanFileName(`${character || "character"}_${role || "reference"}`).slice(0, 80);
     }
@@ -4358,27 +4398,18 @@
       const subCharacters = Array.from(
         document.querySelectorAll(".subchar-check:checked")
       ).map((el) => el.value);
-      const subCharRefs = subCharacters
+      const storyTextForDetection = [title, val("subtitle"), val("theme"), val("aim"), val("p1"), val("p2"), val("p3"), val("p4"), val("notes")]
+        .filter(Boolean)
+        .join("\n");
+      const autoDetectedSubCharacters = Object.keys(characterData)
+        .filter((name) => name !== character)
+        .filter((name) => !subCharacters.includes(name))
+        .filter((name) => storyTextSuggestsCharacter(name, storyTextForDetection, character));
+      const subCharRefs = [...subCharacters, ...autoDetectedSubCharacters]
         .map((name) => {
-          const subInfo = characterData[name];
-          if (!subInfo) return null;
-          const image = configuredCharacterReferenceImage(name);
-          const supportingImages = supportingCharacterReferenceImages(name, image, 4);
-          const primaryImage = supportingImages[0] || image;
-          return {
-            name,
-            info: subInfo,
-            imageName: primaryImage ? primaryImage.name || "" : "",
-            imagePath: primaryImage ? outputImagePath(primaryImage) : "",
-            imageRaw: primaryImage ? primaryImage.path || "" : "",
-            extraImages: supportingImages.slice(1).map((img, index) => ({
-              name: img.name || "",
-              path: img.path || "",
-              outputPath: outputImagePath(img),
-              referenceLabel: referenceImageLabel(name, `sub-character-supporting-reference-${index + 2}`)
-            })),
-            referenceLabel: referenceImageLabel(name, "sub-character-reference")
-          };
+          const ref = buildSubCharacterReference(name);
+          if (ref && autoDetectedSubCharacters.includes(name)) ref.autoDetected = true;
+          return ref;
         })
         .filter(Boolean);
       const subCharInfo = subCharRefs.map((ref) => ref.info);
@@ -4568,6 +4599,47 @@ ${d.notes || "-"}
 `;
     }
 
+    function speakerHintsForCharacter(name) {
+      if (name === "ヴェル13世") return ["ヴェル13世", "ヴェル", "Vel 13th", "Vel", "俺", "オレ"];
+      if (name === "カーラ・マンソン") return ["カーラ・マンソン", "カーラ", "Carla Manson", "Carla", "私", "わたし", "あたし"];
+      if (name === "べるぼ") return ["べるぼ", "ベルボ", "Belbo", "僕", "ぼく", "俺", "オレ"];
+      if (name === "アマモリ") return ["アマモリ", "雨守", "Amamori", "ぼく", "僕"];
+      if (name === "アマヨミ") return ["アマヨミ", "雨詠", "Amayomi", "私", "わたし"];
+      return [name].filter(Boolean);
+    }
+
+    function dialogueMentionsSpeaker(text, speakerName) {
+      const value = String(text || "");
+      return speakerHintsForCharacter(speakerName).some((hint) => hint && value.includes(hint));
+    }
+
+    function speakerPresenceGuide(d) {
+      const speakers = [
+        { name: d.character, role: "main character" },
+        ...((d.subCharRefs || []).map((ref) => ({ name: ref.name, role: "selected sub-character" })))
+      ].filter((speaker) => speaker.name);
+      if (speakers.length < 2) return "";
+      const panels = [
+        ["Panel 1", d.p1],
+        ["Panel 2", d.p2],
+        ["Panel 3", d.p3],
+        ["Panel 4", d.p4]
+      ];
+      const lines = panels.map(([label, text]) => {
+        const mentioned = speakers.filter((speaker) => dialogueMentionsSpeaker(text, speaker.name));
+        const expected = mentioned.length ? mentioned.map((speaker) => speaker.name).join(" / ") : d.character;
+        return `- ${label}: expected visible speaker(s): ${expected}. Dialogue: ${String(text || "").replace(/\s+/g, " ").trim() || "-"}`;
+      });
+      return `\nSpeaker presence guide for this two-character manga:
+${lines.join("\n")}
+- Every expected speaker above must be visibly drawn in that panel, not offscreen.
+- If a dialogue line uses 「俺」 or 「オレ」 and Vel 13th is selected, that line belongs to Vel 13th and Vel must be visible in that panel.
+- If a dialogue line uses 「私」 or 「あたし」 and Carla Manson is the main character, that line belongs to Carla and Carla must be visible in that panel.
+- Do not create a speech bubble for a character who is not visible in the same panel.
+- Do not draw generic audience members or unnamed waiting people as substitutes for selected characters.
+`;
+    }
+
     function imagePrompt(d) {
       const fixed = d.info.fixed.map((line) => `- ${line}`).join("\n");
       const reference = d.referenceImage
@@ -4591,6 +4663,9 @@ ${d.notes || "-"}
       const subCharNames = d.subCharRefs && d.subCharRefs.length
         ? d.subCharRefs.map((ref) => ref.name).join(" / ")
         : "";
+      const hasVelSubCharacter = !!(d.subCharRefs || []).some((ref) => ref.name === "ヴェル13世");
+      const selectedSubNames = (d.subCharRefs || []).map((ref) => ref.name).join(" / ");
+      const speakerGuide = speakerPresenceGuide(d);
       const subCharBlock = d.subCharRefs && d.subCharRefs.length
         ? `\nSub-characters appearing in this manga:
 ${d.subCharRefs.map((ref) => {
@@ -4604,17 +4679,24 @@ ${d.subCharRefs.map((ref) => {
             const imageLine = ref.imagePath
               ? `  Reference image: ${ref.imageName || "selected image"}${labelLine}\n  Local path: ${ref.imagePath}`
               : "  Reference image: not selected";
-            return `- ${ref.name}\n${imageLine}${extraLines}\n${fixedLines}`;
+            const detectionLine = ref.autoDetected
+              ? "  Auto-detected from the script text. Treat this character as intentionally selected and attach their registered reference images."
+              : "  Explicitly selected in the tool. Use the registered reference images for this character.";
+            return `- ${ref.name}\n${detectionLine}\n${imageLine}${extraLines}\n${fixedLines}`;
           }).join("\n")}
 
 Sub-character identity lock:
 - The selected sub-character reference images are attached to this request and labeled for each character.
 - ${subCharNames} must look like the exact person from their own reference image set. Do not invent a new person.
 - Use each labeled reference image only for the character named in its filename label. Do not blend the main character and sub-character designs.
+- Registered character images are mandatory visual identity references, not loose style suggestions.
+- If the exact registered character cannot fit into a panel, simplify the panel composition rather than drawing a different person.
 - Do not replace a selected sub-character with a generic woman, man, idol, gothic character, passerby, or redesigned version.
 - Keep each selected sub-character's face, hairstyle, outfit silhouette, colors, accessories, age, body shape, and mood consistent with their own reference image set.
 - If Carla Manson / カーラ・マンソン is selected, draw Carla Manson herself. She must not become a different female character.
 - If Vel 13th / ヴェル13世 is selected, draw Vel 13th himself: 42-year-old man, black hat with leopard-pattern band, small horns, glowing eyes, neon wings, tail, bell-bottom pants, and umbrella. He must not become a generic boy, girl, idol, demon, or unrelated gothic person.
+- If Vel 13th / ヴェル13世 is selected, every black-clothed man, umbrella man, demon-like male, or male figure in the manga must be Vel 13th and must include his signature hat, small horns, glowing eyes, neon wings, tail, bell-bottom pants, and umbrella.
+- Do not draw an unnamed "person waiting for Carla" or generic dark man when Vel 13th is selected. Use Vel 13th himself.
 
 Sub-character staging rules:
 - Include every selected sub-character visibly in the manga, not only in text.
@@ -4632,6 +4714,9 @@ Sub-character staging rules:
 - For a two-character panel, use a clear left/right composition: main character on one side, selected sub-character on the other side, with their own bubble nearest to them.
 - Correct speaker-to-bubble assignment is more important than the default left/right bubble alternation.
 - Before finalizing the image, self-check: every bubble tail must point to the character who is actually speaking.
+${hasVelSubCharacter ? "- Carla Manson episode with Vel 13th selected: Vel 13th must be clearly identifiable whenever he appears. If Vel has any dialogue, show Vel's body or face in that same panel. Never show only his speech bubble." : ""}
+Selected sub-character names: ${selectedSubNames}
+${speakerGuide}
 `
         : "";
       const chatGptReferenceBlock = d.chatGptReferenceInstruction
@@ -4734,7 +4819,9 @@ ${imagePatternBlock}${subCharBlock}${reference}${angleBlock}${mangaReference}
 Avoid these visual failures:
 - Wrong character identity, generic replacement character, redesigned face, wrong age, wrong hairstyle, wrong outfit, or missing signature accessories.
 - Speech bubble attached to the wrong character.
+- Speech bubble for a character who is not visible in the same panel.
 - Two speakers combined into one bubble.
+- Selected sub-character replaced by an unnamed audience member, shadow figure, or generic person.
 - Speaker name labels rendered visibly when they were only meant as placement metadata.
 - Flat all-black lettering with no style or accent.
 ${d.info.negative ? `- ${d.info.negative}` : ""}
@@ -8805,11 +8892,16 @@ ${lines || "|  |  |  |  |  |  |  |  |"}
       try {
         render();
         const d = data();
+        const missingSubRefs = (d.subCharRefs || []).filter((ref) => !ref.imageRaw);
+        if (missingSubRefs.length) {
+          throw new Error(`登場キャラクターの登録画像が見つかりません: ${missingSubRefs.map((ref) => ref.name).join(" / ")}。キャラ別プリセットで画像を登録してから生成してください。`);
+        }
         const prompt = imagePrompt(d);
         const references = await imageReferencePayload(d);
         const referenceCount = imageReferenceCount(references);
         if (referenceCount) {
-          setGeneratedImageStatus(`参考画像${referenceCount}枚を添付してOpenAIで漫画画像を生成しています。`);
+          const subNames = (d.subCharRefs || []).map((ref) => ref.name).join(" / ");
+          setGeneratedImageStatus(`参考画像${referenceCount}枚を添付してOpenAIで漫画画像を生成しています。${subNames ? `登場キャラ: ${subNames}` : ""}`);
         }
         const dataUrl = await callOpenAIImage(apiKey, prompt, d, references);
         lastGeneratedImage = {
