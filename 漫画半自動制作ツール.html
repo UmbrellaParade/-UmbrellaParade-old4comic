@@ -4641,14 +4641,18 @@ Sub-character staging rules:
               finalCopy: d.info.final
             };
       const textLegibilityBlock = `Critical text legibility rules. Follow these before adding background detail:
-- Make the Japanese dialogue inside speech bubbles very large and easy to read on a smartphone screen without zooming.
-- Dialogue text should feel about 1.4 to 1.6 times larger than normal manga lettering.
-- Use bold, thick, clean Japanese Gothic or rounded Gothic lettering: black text on plain white speech bubbles.
+- The manga will be read on a smartphone timeline. The dialogue must be readable without zooming on a 6-inch phone screen.
+- Make the Japanese dialogue inside speech bubbles extremely large, bold, and high contrast.
+- Dialogue text should feel about 1.6 to 1.8 times larger than normal manga lettering.
+- Use thick, clean Japanese Gothic or rounded Gothic lettering: black text on plain white speech bubbles.
+- Each speech bubble should occupy enough space for large text: roughly 30% to 45% of the panel width when needed.
 - Keep each bubble's dialogue to 2 to 4 short lines with generous line spacing and wide inner padding.
-- Do not shrink the text to fit a long sentence. Instead, use line breaks at emotional pauses and simplify the visible wording if needed.
-- Speech bubbles may be larger than usual. Reduce background detail and decorative effects before reducing text size.
-- The four dialogue lines are more important than scenery, signs, effects, and tiny background writing.
-- Avoid small background text that competes with the dialogue.
+- Prefer short line breaks at emotional pauses. Keep each visible line around 5 to 10 Japanese characters when possible.
+- Do not shrink the text to fit a long sentence. If text becomes crowded, simplify the visible wording rather than making the font smaller.
+- Speech bubbles may be larger than usual. Reduce background detail, rain effects, neon signs, and decorative objects before reducing text size.
+- The four dialogue lines are more important than scenery, signs, effects, character decorations, and tiny background writing.
+- Avoid small background text that competes with the dialogue. Do not add decorative signs with readable words unless they are the required logo/final copy.
+- Before finalizing the image, self-check: if any dialogue would be hard to read on a phone, make the bubble and text larger.
 
 `;
       const panelLayoutBlock = `Critical four-panel layout rules. Follow these before style, background, and effects:
@@ -4661,7 +4665,7 @@ Sub-character staging rules:
 - Speech bubbles must alternate left and right. Never put all four bubbles on the left.
 - Keep bubbles inside each panel. Do not cover the face, hat, horns, wings, character props, or logo/sign area.
 - Each speech bubble tail must point to the speaking character.
-- Use short, large, readable Japanese text. If text becomes too crowded, use fewer words rather than shrinking text.
+- Use short, extra-large, readable Japanese text. If text becomes too crowded, use fewer words rather than shrinking text.
 
 On-image text whitelist:
 - The only text that may appear inside the manga image is: title, subtitle, the four panel dialogue lines, the final copy, and ${logoProfile.visibleText}.
@@ -4694,7 +4698,7 @@ Panel 4 visible dialogue: ${d.p4 || ""}
 
 Layout rules:
 - Four clear panels.
-- Very large readable Japanese dialogue. Prioritize text size and legibility over detailed backgrounds.
+- Extra-large smartphone-readable Japanese dialogue. Prioritize text size and legibility over detailed backgrounds.
 - Render only the whitelisted visible text. Do not render theme, aim, memo, or instruction text anywhere.
 - Smartphone-friendly composition.
 - Clean panel borders.
