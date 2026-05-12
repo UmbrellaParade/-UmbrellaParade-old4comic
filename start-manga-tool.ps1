@@ -5,7 +5,6 @@ $toolHtml = (Get-ChildItem -LiteralPath $toolDir -Filter "*.html" | Select-Objec
 $serverScript = Join-Path $toolDir "x-post-server.js"
 $healthUrl = "http://127.0.0.1:8787/health"
 $importApiUrl = "http://127.0.0.1:8787/import-directory?character=healthcheck"
-$toolUrl = "http://127.0.0.1:8787/tool"
 $launcherLog = Join-Path $toolDir "manga-tool-launcher.log"
 $bundledNode = "C:\Users\myabe\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
 
@@ -83,8 +82,8 @@ if (-not ((Test-XPostServer) -and (Test-ImportApi))) {
 }
 
 if ($toolHtml -and (Test-Path -LiteralPath $toolHtml)) {
-  Write-LauncherLog "Opening manga tool: $toolUrl"
-  Start-Process $toolUrl
+  Write-LauncherLog "Opening manga tool: $toolHtml"
+  Start-Process -FilePath $toolHtml
 } else {
   throw "Manga tool HTML was not found."
 }
