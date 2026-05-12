@@ -7,6 +7,8 @@ const path = require("path");
 
 const SCHEDULE_PATH = path.join(__dirname, "x-scheduled-posts.json");
 const LOG_FILE = path.join(__dirname, "x-scheduler-runner.log");
+const FILE_RETRY_ATTEMPTS = Number(process.env.FILE_RETRY_ATTEMPTS || 10);
+const FILE_RETRY_DELAY_MS = Number(process.env.FILE_RETRY_DELAY_MS || 180);
 
 // ─── ログ ────────────────────────────────────────────────────────────────────
 
@@ -14,6 +16,38 @@ function log(tag, data = null) {
   const line = `[${new Date().toISOString()}] ${tag}${data ? " " + JSON.stringify(data) : ""}`;
   console.log(line);
   try { fs.appendFileSync(LOG_FILE, line + "\n", "utf8"); } catch {}
+}
+
+function sleepSync(ms) {
+  if (!ms || ms <= 0) return;
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function isRetryableFileError(error) {
+  const code = error && error.code;
+  const message = String((error && error.message) || "");
+  return ["EBUSY", "EPERM", "EACCES", "UNKNOWN"].includes(code)
+    || /unknown error|resource busy|being used by another process|temporarily unavailable/i.test(message);
+}
+
+function withFileRetry(action, label, filePath) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= FILE_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      return action();
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableFileError(error) || attempt >= FILE_RETRY_ATTEMPTS) throw error;
+      log("FILE_RETRY", {
+        label,
+        filePath,
+        attempt,
+        message: error.message || String(error)
+      });
+      sleepSync(FILE_RETRY_DELAY_MS * attempt);
+    }
+  }
+  throw lastError;
 }
 
 // ─── スケジューJSONの読み書き ───────────────────────────────────────────────
@@ -31,11 +65,10 @@ function readScheduleQueue() {
 }
 
 function writeScheduleQueue(queue) {
-  fs.writeFileSync(
-    SCHEDULE_PATH,
-    JSON.stringify(Array.isArray(queue) ? queue : [], null, 2),
-    "utf8"
-  );
+  const payload = JSON.stringify(Array.isArray(queue) ? queue : [], null, 2);
+  withFileRetry(() => {
+    fs.writeFileSync(SCHEDULE_PATH, payload, "utf8");
+  }, "writeScheduleQueue", SCHEDULE_PATH);
 }
 
 // ─── ユーティリティ ──────────────────────────────────────────────────────────
