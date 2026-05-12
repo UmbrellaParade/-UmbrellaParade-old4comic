@@ -16,6 +16,8 @@ const GITHUB_WORKFLOWS_DIR = path.join(__dirname, ".github", "workflows");
 const GIT_DIR = path.join(__dirname, ".git");
 const VAULT_ROOT = process.env.VAULT_ROOT || path.resolve(__dirname, "..", "..", "..", "..");
 const DEFAULT_SCOPES = "tweet.read tweet.write users.read media.write offline.access";
+const FILE_RETRY_ATTEMPTS = Number(process.env.FILE_RETRY_ATTEMPTS || 10);
+const FILE_RETRY_DELAY_MS = Number(process.env.FILE_RETRY_DELAY_MS || 180);
 let lastError = null;
 let scheduleTickRunning = false;
 const oauthSessions = new Map();
@@ -37,6 +39,38 @@ function rememberError(error, context = {}) {
     detail: error.body || null
   };
   log("ERROR", lastError);
+}
+
+function isRetryableFileError(error) {
+  const code = error && error.code;
+  const message = String((error && error.message) || "");
+  return ["EBUSY", "EPERM", "EACCES", "UNKNOWN"].includes(code)
+    || /unknown error|resource busy|being used by another process|temporarily unavailable/i.test(message);
+}
+
+function sleepSync(ms) {
+  if (!ms || ms <= 0) return;
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function withFileRetry(action, label, filePath) {
+  let lastErrorForRetry = null;
+  for (let attempt = 1; attempt <= FILE_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      return action();
+    } catch (error) {
+      lastErrorForRetry = error;
+      if (!isRetryableFileError(error) || attempt >= FILE_RETRY_ATTEMPTS) throw error;
+      log("FILE_RETRY", {
+        label,
+        filePath,
+        attempt,
+        message: error.message || String(error)
+      });
+      sleepSync(FILE_RETRY_DELAY_MS * attempt);
+    }
+  }
+  throw lastErrorForRetry;
 }
 
 function corsHeaders() {
@@ -88,10 +122,12 @@ function escapeHtml(value) {
 
 function readJsonFile(filePath, fallback) {
   try {
-    if (!fs.existsSync(filePath)) return fallback;
-    const raw = fs.readFileSync(filePath, "utf8").replace(/^\uFEFF/, "");
-    const parsed = JSON.parse(raw || "null");
-    return parsed && typeof parsed === "object" ? parsed : fallback;
+    return withFileRetry(() => {
+      if (!fs.existsSync(filePath)) return fallback;
+      const raw = fs.readFileSync(filePath, "utf8").replace(/^\uFEFF/, "");
+      const parsed = JSON.parse(raw || "null");
+      return parsed && typeof parsed === "object" ? parsed : fallback;
+    }, "readJsonFile", filePath);
   } catch (error) {
     rememberError(error, { route: "readJsonFile", filePath });
     return fallback;
@@ -99,7 +135,9 @@ function readJsonFile(filePath, fallback) {
 }
 
 function writeJsonFile(filePath, payload) {
-  fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  withFileRetry(() => {
+    fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  }, "writeJsonFile", filePath);
 }
 
 function gitPath() {
@@ -647,17 +685,24 @@ async function deleteXPost(token, postId) {
 
 function readScheduleQueue() {
   try {
-    const raw = fs.readFileSync(SCHEDULE_PATH, "utf8").replace(/^\uFEFF/, "");
-    const parsed = JSON.parse(raw || "[]");
-    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    return withFileRetry(() => {
+      if (!fs.existsSync(SCHEDULE_PATH)) return [];
+      const raw = fs.readFileSync(SCHEDULE_PATH, "utf8").replace(/^\uFEFF/, "");
+      const parsed = JSON.parse(raw || "[]");
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    }, "readScheduleQueue", SCHEDULE_PATH);
   } catch (error) {
-    if (error.code !== "ENOENT") rememberError(error, { route: "readScheduleQueue" });
-    return [];
+    if (error.code === "ENOENT") return [];
+    rememberError(error, { route: "readScheduleQueue" });
+    throw error;
   }
 }
 
 function writeScheduleQueue(queue) {
-  fs.writeFileSync(SCHEDULE_PATH, JSON.stringify(Array.isArray(queue) ? queue : [], null, 2), "utf8");
+  const payload = JSON.stringify(Array.isArray(queue) ? queue : [], null, 2);
+  withFileRetry(() => {
+    fs.writeFileSync(SCHEDULE_PATH, payload, "utf8");
+  }, "writeScheduleQueue", SCHEDULE_PATH);
 }
 
 function publicScheduleJob(job) {

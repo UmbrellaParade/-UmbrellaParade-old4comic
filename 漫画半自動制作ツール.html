@@ -4640,6 +4640,17 @@ Sub-character staging rules:
               instruction: "- Put a small Umbrella Parade logo area with an umbrella motif on the final panel.",
               finalCopy: d.info.final
             };
+      const textLegibilityBlock = `Critical text legibility rules. Follow these before adding background detail:
+- Make the Japanese dialogue inside speech bubbles very large and easy to read on a smartphone screen without zooming.
+- Dialogue text should feel about 1.4 to 1.6 times larger than normal manga lettering.
+- Use bold, thick, clean Japanese Gothic or rounded Gothic lettering: black text on plain white speech bubbles.
+- Keep each bubble's dialogue to 2 to 4 short lines with generous line spacing and wide inner padding.
+- Do not shrink the text to fit a long sentence. Instead, use line breaks at emotional pauses and simplify the visible wording if needed.
+- Speech bubbles may be larger than usual. Reduce background detail and decorative effects before reducing text size.
+- The four dialogue lines are more important than scenery, signs, effects, and tiny background writing.
+- Avoid small background text that competes with the dialogue.
+
+`;
       const panelLayoutBlock = `Critical four-panel layout rules. Follow these before style, background, and effects:
 - Use exactly four stacked horizontal panels in one vertical 9:16 image.
 - Do not place all speech bubbles on the same side.
@@ -4660,7 +4671,7 @@ On-image text whitelist:
 - Do not write words such as 「テーマ」, 「Theme」, 「狙い」, 「Aim」, 「メモ」, or 「コンセプト」 anywhere in the artwork.
 
 ${carlaColorBlock}`;
-      return `${chatGptReferenceBlock}${panelLayoutBlock}Create a vertical 9:16 four-panel manga for Umbrella Parade.
+      return `${chatGptReferenceBlock}${textLegibilityBlock}${panelLayoutBlock}Create a vertical 9:16 four-panel manga for Umbrella Parade.
 
 Main character preset from Obsidian:
 ${d.info.profileSummary || ""}
@@ -4683,7 +4694,7 @@ Panel 4 visible dialogue: ${d.p4 || ""}
 
 Layout rules:
 - Four clear panels.
-- Large readable Japanese dialogue.
+- Very large readable Japanese dialogue. Prioritize text size and legibility over detailed backgrounds.
 - Render only the whitelisted visible text. Do not render theme, aim, memo, or instruction text anywhere.
 - Smartphone-friendly composition.
 - Clean panel borders.
