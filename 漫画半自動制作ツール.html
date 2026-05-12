@@ -6824,21 +6824,29 @@ ${lines || "|  |  |  |  |  |  |  |  |"}
       }
     }
 
+    async function fetchXOAuthResultEndpoint(endpoint) {
+      const response = await fetch(endpoint);
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) throw new Error(json.error || stringifyXDetail(json.detail) || `HTTP ${response.status}`);
+      return json;
+    }
+
     async function checkXOAuthResult(showPending = false) {
       const state = currentXOAuthState();
       const targetCharacter = xTokenCharacter();
+      const latestEndpoint = `${scheduleServerUrl()}/oauth/latest?character=${encodeURIComponent(targetCharacter)}`;
       const endpoint = state
         ? `${scheduleServerUrl()}/oauth/result?state=${encodeURIComponent(state)}`
-        : `${scheduleServerUrl()}/oauth/latest?character=${encodeURIComponent(targetCharacter)}`;
+        : latestEndpoint;
       try {
-        const response = await fetch(endpoint);
-        const json = await response.json().catch(() => ({}));
-        if (!response.ok || !json.ok) throw new Error(json.error || stringifyXDetail(json.detail) || `HTTP ${response.status}`);
+        let json = await fetchXOAuthResultEndpoint(endpoint);
+        if (!json.ready && state) {
+          json = await fetchXOAuthResultEndpoint(latestEndpoint);
+        }
         if (!json.ready) {
           if (showPending) {
-            setXPostStatus(state
-              ? "まだX認可が完了していません。Xログイン画面で許可してください。"
-              : "直近のOAuth取得結果がまだありません。Xログインしてトークン取得を押してから、認可後にもう一度確認してください。");
+            clearXOAuthState();
+            setXPostStatus("直近のOAuth取得結果がまだありません。Xログインしてトークン取得を押してから、認可後にもう一度確認してください。");
           }
           return false;
         }
