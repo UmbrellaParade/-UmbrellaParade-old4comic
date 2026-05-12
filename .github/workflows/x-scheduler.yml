@@ -2,20 +2,19 @@ name: X予約投稿ランナー
 
 on:
   schedule:
-    # GitHub Actionsの混雑しやすい00分/30分を避け、5分ごとに予約キューを確認する
+    # GitHub Actionsの混雑を避けつつ、5分ごとに予約キューを確認する。
     - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'
   workflow_dispatch:
-    # GitHubの画面から手動実行も可能
 
 concurrency:
   group: x-scheduler
-  cancel-in-progress: false   # 前の実行が終わるまで待つ（同時実行しない）
+  cancel-in-progress: false
 
 permissions:
-  contents: write             # x-scheduled-posts.json をコミットして戻すため
+  contents: write
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # Node.js 24 を使用（警告対策）
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   run-scheduler:
@@ -27,21 +26,28 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Node.js バージョン確認
+      - name: Node.jsバージョン確認
         run: node --version
 
       - name: X予約投稿スケジューラーを実行
+        id: run_scheduler
+        continue-on-error: true
         run: node x-scheduler-runner.js
 
-      - name: 更新されたスケジュールをコミット＆プッシュ
+      - name: 更新されたスケジュールをコミットしてプッシュ
+        if: always()
         run: |
           git config user.name "X Scheduler Bot"
           git config user.email "xscheduler@umbrella-parade.local"
           git add x-scheduled-posts.json
           if git diff --staged --quiet; then
-            echo "✅ スケジュールに変更なし（投稿なし）"
+            echo "スケジュールに変更なし"
           else
-            git commit -m "chore: 予約投稿ステータス更新 [skip ci]"
+            git commit -m "chore: 予約投稿スケジュール更新 [skip ci]"
             git push
-            echo "✅ スケジュールを更新してプッシュしました"
+            echo "スケジュールを更新してプッシュしました"
           fi
+
+      - name: スケジューラー失敗を最終ステータスへ反映
+        if: steps.run_scheduler.outcome == 'failure'
+        run: exit 1
