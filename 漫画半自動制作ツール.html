@@ -3646,6 +3646,23 @@
       return preferredCharacterReferenceImage(character);
     }
 
+    function supportingCharacterReferenceImages(character, primaryImage, limit = 4) {
+      const images = getCharacterImages(character).filter((img) => img && img.path && !imageLooksLikeMangaOutput(img));
+      const priority = images.filter((img) => /人物|キャラ|キャラクター|reference|ref|3面|三面|正面|front|side|左|右|back|後ろ|立ち絵|設定|profile|visual|ビジュアル/i.test(`${img.category || ""} ${img.name || ""}`));
+      const ordered = [
+        primaryImage,
+        ...priority,
+        ...images
+      ].filter(Boolean);
+      const seen = new Set();
+      return ordered.filter((img) => {
+        const key = String(img.path || "").trim().toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, limit);
+    }
+
     function referenceImageLabel(character, role) {
       return cleanFileName(`${character || "character"}_${role || "reference"}`).slice(0, 80);
     }
@@ -4346,12 +4363,20 @@
           const subInfo = characterData[name];
           if (!subInfo) return null;
           const image = configuredCharacterReferenceImage(name);
+          const supportingImages = supportingCharacterReferenceImages(name, image, 4);
+          const primaryImage = supportingImages[0] || image;
           return {
             name,
             info: subInfo,
-            imageName: image ? image.name || "" : "",
-            imagePath: image ? outputImagePath(image) : "",
-            imageRaw: image ? image.path || "" : "",
+            imageName: primaryImage ? primaryImage.name || "" : "",
+            imagePath: primaryImage ? outputImagePath(primaryImage) : "",
+            imageRaw: primaryImage ? primaryImage.path || "" : "",
+            extraImages: supportingImages.slice(1).map((img, index) => ({
+              name: img.name || "",
+              path: img.path || "",
+              outputPath: outputImagePath(img),
+              referenceLabel: referenceImageLabel(name, `sub-character-supporting-reference-${index + 2}`)
+            })),
             referenceLabel: referenceImageLabel(name, "sub-character-reference")
           };
         })
@@ -4573,18 +4598,23 @@ ${d.subCharRefs.map((ref) => {
             const labelLine = ref.referenceLabel
               ? `\n  API reference filename label: ${ref.referenceLabel}`
               : "";
+            const extraLines = (ref.extraImages || []).length
+              ? `\n  Additional identity reference images:\n${ref.extraImages.map((img) => `  - ${img.name || "supporting reference"} / API label: ${img.referenceLabel || ""} / Local path: ${img.outputPath || img.path || ""}`).join("\n")}`
+              : "";
             const imageLine = ref.imagePath
               ? `  Reference image: ${ref.imageName || "selected image"}${labelLine}\n  Local path: ${ref.imagePath}`
               : "  Reference image: not selected";
-            return `- ${ref.name}\n${imageLine}\n${fixedLines}`;
+            return `- ${ref.name}\n${imageLine}${extraLines}\n${fixedLines}`;
           }).join("\n")}
 
 Sub-character identity lock:
 - The selected sub-character reference images are attached to this request and labeled for each character.
-- ${subCharNames} must look like the exact person from their own reference image. Do not invent a new person.
+- ${subCharNames} must look like the exact person from their own reference image set. Do not invent a new person.
+- Use each labeled reference image only for the character named in its filename label. Do not blend the main character and sub-character designs.
 - Do not replace a selected sub-character with a generic woman, man, idol, gothic character, passerby, or redesigned version.
-- Keep each selected sub-character's face, hairstyle, outfit silhouette, colors, accessories, and mood consistent with their own reference image.
+- Keep each selected sub-character's face, hairstyle, outfit silhouette, colors, accessories, age, body shape, and mood consistent with their own reference image set.
 - If Carla Manson / カーラ・マンソン is selected, draw Carla Manson herself. She must not become a different female character.
+- If Vel 13th / ヴェル13世 is selected, draw Vel 13th himself: 42-year-old man, black hat with leopard-pattern band, small horns, glowing eyes, neon wings, tail, bell-bottom pants, and umbrella. He must not become a generic boy, girl, idol, demon, or unrelated gothic person.
 
 Sub-character staging rules:
 - Include every selected sub-character visibly in the manga, not only in text.
@@ -4595,8 +4625,11 @@ Sub-character staging rules:
 - Speech bubble tails must point to the correct speaker's mouth or chest area.
 - Never place a sub-character's line in a bubble visually attached to the main character, and never place the main character's line in a bubble visually attached to the sub-character.
 - If one panel contains lines from two speakers, split them into two separate speech bubbles, one near each speaker.
+- Do not draw two bubble tails pointing to the same character when the text belongs to different speakers.
+- If the correct speaker is unclear, simplify the panel to one speaker rather than attaching the wrong character's dialogue.
 - If the panel script includes a speaker label such as "Vel 13th:", "ヴェル13世「...」", "Carla Manson:", or "カーラ・マンソン「...」", use the label only to assign the bubble to that character. Do not draw the speaker name label unless it is part of the spoken line.
 - Keep two characters on clearly different sides of the panel when possible, and place each speaker's bubble on their own side or above them.
+- For a two-character panel, use a clear left/right composition: main character on one side, selected sub-character on the other side, with their own bubble nearest to them.
 - Correct speaker-to-bubble assignment is more important than the default left/right bubble alternation.
 - Before finalizing the image, self-check: every bubble tail must point to the character who is actually speaking.
 `
@@ -4651,7 +4684,10 @@ Sub-character staging rules:
 - The manga will be read on a smartphone timeline. The dialogue must be readable without zooming on a 6-inch phone screen.
 - Make the Japanese dialogue inside speech bubbles extremely large, bold, and high contrast.
 - Dialogue text should feel about 1.6 to 1.8 times larger than normal manga lettering.
-- Use thick, clean Japanese Gothic or rounded Gothic lettering: black text on plain white speech bubbles.
+- Use thick, clean Japanese Gothic or rounded Gothic lettering. Avoid a flat all-black look.
+- Main dialogue should be very dark charcoal or deep ink for readability, with subtle character-colored accents on important words, bubble outlines, or small emphasis marks.
+- Accent colors: Vel 13th uses neon orange or red-orange accents; Carla Manson uses wine red, rose pink, or deep purple accents; Belbo uses cyan or lime accents.
+- Keep the text readable first. Do not use pale colors for main dialogue, and do not make every character a different color.
 - Each speech bubble should occupy enough space for large text: roughly 30% to 45% of the panel width when needed.
 - Keep each bubble's dialogue to 2 to 4 short lines with generous line spacing and wide inner padding.
 - Prefer short line breaks at emotional pauses. Keep each visible line around 5 to 10 Japanese characters when possible.
@@ -4694,6 +4730,15 @@ ${d.info.mangaTemplate || ""}
 Fixed visual and story rules (main character):
 ${fixed}
 ${imagePatternBlock}${subCharBlock}${reference}${angleBlock}${mangaReference}
+
+Avoid these visual failures:
+- Wrong character identity, generic replacement character, redesigned face, wrong age, wrong hairstyle, wrong outfit, or missing signature accessories.
+- Speech bubble attached to the wrong character.
+- Two speakers combined into one bubble.
+- Speaker name labels rendered visibly when they were only meant as placement metadata.
+- Flat all-black lettering with no style or accent.
+${d.info.negative ? `- ${d.info.negative}` : ""}
+
 Visible title text: 「${d.title}」
 Visible subtitle text: 「${d.subtitle || ""}」
 The production theme and aim are stored inside the tool only.
@@ -4709,6 +4754,7 @@ Dialogue speaker handling:
 - Render only the spoken words inside the bubble unless the name is clearly meant to be spoken aloud.
 - If a panel contains two speaker-labeled lines, draw two separate bubbles and attach each tail to the matching character.
 - Do not combine two speakers into one bubble.
+- Never place both bubbles next to only one character when two characters are speaking.
 
 Layout rules:
 - Four clear panels.
@@ -8518,7 +8564,12 @@ ${lines || "|  |  |  |  |  |  |  |  |"}
         d.angleLeft,
         d.angleBack,
         d.mangaRefImageRaw,
-        ...(Array.isArray(d.subCharRefs) ? d.subCharRefs.map((ref) => ref.imageRaw) : [])
+        ...(Array.isArray(d.subCharRefs)
+          ? d.subCharRefs.flatMap((ref) => [
+              ref.imageRaw,
+              ...((ref.extraImages || []).map((img) => img.path))
+            ])
+          : [])
       ];
     }
 
@@ -8555,9 +8606,14 @@ ${lines || "|  |  |  |  |  |  |  |  |"}
         if (sameReferencePath(value, path)) return label;
       }
       const subRef = Array.isArray(d.subCharRefs)
-        ? d.subCharRefs.find((ref) => sameReferencePath(ref.imageRaw, path))
+        ? d.subCharRefs.find((ref) => {
+            return sameReferencePath(ref.imageRaw, path)
+              || (ref.extraImages || []).some((img) => sameReferencePath(img.path, path));
+          })
         : null;
       if (subRef) {
+        const extra = (subRef.extraImages || []).find((img) => sameReferencePath(img.path, path));
+        if (extra) return extra.referenceLabel || referenceImageLabel(subRef.name, "sub-character-supporting-reference");
         return subRef.referenceLabel || referenceImageLabel(subRef.name, "sub-character-reference");
       }
       return referenceImageLabel(character, "reference");
