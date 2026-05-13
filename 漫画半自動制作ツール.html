@@ -7711,8 +7711,19 @@ ${lines || "|  |  |  |  |  |  |  |  |"}
       return `${item.date || ""}|${item.character || ""}|${item.title || ""}`;
     }
 
+    function hasCalendarPostRecord(item) {
+      if (!item) return false;
+      return !!(
+        item.xScheduleJobId || item.xScheduledAt || item.xScheduleStatus ||
+        item.xPostId || item.xPostUrl || item.xPostedAt ||
+        item.wpPostId || item.wpPostUrl || item.wpScheduledAt || item.wpPostedAt
+      );
+    }
+
     function calendarReservationsWithXScheduleOverlay(showAllCharacters) {
-      const reservations = readList(RESERVATION_KEY).filter((item) => showAllCharacters || sameActiveCharacter(item));
+      const reservations = readList(RESERVATION_KEY)
+        .filter(hasCalendarPostRecord)
+        .filter((item) => showAllCharacters || sameActiveCharacter(item));
       const scheduleJobs = visibleXScheduleJobs(latestXScheduleJobs).filter((job) => showAllCharacters || sameActiveCharacter(job));
       const jobsByReservationId = new Map();
       const pendingKeys = new Set();
