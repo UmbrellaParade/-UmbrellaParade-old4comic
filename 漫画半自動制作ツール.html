@@ -6674,7 +6674,6 @@ ${lines || "|  |  |  |  |  |  |  |  |"}
       localStorage.removeItem(X_OAUTH_CLIENT_SECRET_KEY);
       updateXOAuthRedirectUri();
       activeXOAuthSettingsCharacter = targetCharacter;
-      if (getXAccessTokenForCharacter(targetCharacter)) syncXTokenToLocalServer(targetCharacter, false);
       if (showMessage) setXPostStatus(`${targetCharacter}用のX OAuth設定を保存しました。`);
       return { character: targetCharacter, clientId, clientSecret, redirectUri: xOAuthRedirectUri() };
     }
@@ -6940,7 +6939,6 @@ ${lines || "|  |  |  |  |  |  |  |  |"}
       const token = getXAccessTokenForCharacter(targetCharacter);
       $("xAccessToken").value = token;
       updateXOAuthSavedStatus(targetCharacter);
-      if (token) syncXTokenToLocalServer(targetCharacter, false);
       setXPostStatus(token
         ? `${targetCharacter}用のXトークン保存済みです。`
         : `${targetCharacter}用のXトークン未設定です。`);
@@ -10520,7 +10518,6 @@ ${optionalOutput ? optionalOutput + "\n" : ""}  "p1": "1コマ目のセリフや
       loadImageDownloadNameConfig(val("character") || "ヴェル13世");
       loadImageDownloadFolder(val("character") || "ヴェル13世");
       checkXLocalServerConnection(false);
-      syncAllSavedXTokensToLocalServer();
       refreshXScheduleQueue(false);
       try {
         await loadPersistedRuntimeImages();
