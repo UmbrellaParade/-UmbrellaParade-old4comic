@@ -6450,16 +6450,29 @@ ${lines || "|  |  |  |  |  |  |  |  |"}
       return "";
     }
 
-    function xCloudServerUrl() {
-      const raw = ($("xCloudServerUrl")?.value || localStorage.getItem(X_CLOUD_SERVER_URL_KEY) || "").trim();
-      if (!raw) return "";
+    function normalizeScheduleServerUrl(raw) {
+      const value = String(raw || "").trim();
+      if (!value) return "";
       try {
-        const parsed = new URL(raw);
-        parsed.pathname = parsed.pathname.replace(/\/x-callback\/?$/i, "").replace(/\/+$/g, "");
-        return parsed.toString().replace(/\/$/, "");
+        const parsed = new URL(value);
+        parsed.pathname = parsed.pathname
+          .replace(/\/x-callback\/?$/i, "")
+          .replace(/\/oauth\/[^/]+\/?$/i, "")
+          .replace(/\/tool\/?$/i, "")
+          .replace(/\/index\.html?$/i, "")
+          .replace(/\/+$/g, "");
+        parsed.search = "";
+        parsed.hash = "";
+        return parsed.pathname && parsed.pathname !== "/" ? parsed.toString().replace(/\/$/, "") : parsed.origin;
       } catch {
         return "";
       }
+    }
+
+    function xCloudServerUrl() {
+      const raw = ($("xCloudServerUrl")?.value || localStorage.getItem(X_CLOUD_SERVER_URL_KEY) || "").trim();
+      if (!raw) return "";
+      return normalizeScheduleServerUrl(raw);
     }
 
     function scheduleServerUrl() {
@@ -6468,15 +6481,7 @@ ${lines || "|  |  |  |  |  |  |  |  |"}
 
     function xLocalServerUrl() {
       const raw = ($("xLocalServerUrl")?.value || localStorage.getItem(X_LOCAL_SERVER_URL_KEY) || "http://127.0.0.1:8787").trim();
-      try {
-        const parsed = new URL(raw);
-        parsed.pathname = parsed.pathname.replace(/\/x-callback\/?$/i, "").replace(/\/+$/g, "");
-        parsed.search = "";
-        parsed.hash = "";
-        return parsed.pathname && parsed.pathname !== "/" ? parsed.toString().replace(/\/$/, "") : parsed.origin;
-      } catch {
-        return "http://127.0.0.1:8787";
-      }
+      return normalizeScheduleServerUrl(raw) || "http://127.0.0.1:8787";
     }
 
     function loadXLocalServerUrl() {
